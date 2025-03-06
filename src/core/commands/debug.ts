@@ -4,7 +4,7 @@ import { getDebugInfo } from "@lib/api/debug";
 import { messageUtil } from "@metro/common";
 
 export default () => <ApplicationCommand>{
-    name:"Cum💦💦",
+    name:"gooon💦💦",
     description: Strings.COMMAND_DEBUG_DESC,
     options: [
         {
@@ -16,7 +16,7 @@ export default () => <ApplicationCommand>{
     execute([ephemeral], ctx) {
         const info = getDebugInfo();
         const content = [
-            "💦**CumCord Debug Info**💦",
+            "💦**GoonerCord Debug Info**💦",
             `> Revenge: ${info.bunny.version} (${"CumCord💦 " }${info.bunny.loader.version})`,
             `> Discord: ${info.discord.version} (${info.discord.build})`,
             `> React: ${info.react.version} (RN ${info.react.nativeVersion})`,
