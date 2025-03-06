@@ -17,7 +17,7 @@ export default () => <ApplicationCommand>{
         const info = getDebugInfo();
         const content = [
             "💦**GoonerCord Debug Info**💦",
-            `> Revenge: ${info.bunny.version} (${"CumCord💦 " }${info.bunny.loader.version})`,
+            `> Revenge: ${info.bunny.version} (${"GoonerCord💦 " }${info.bunny.loader.version})`,
             `> Discord: ${info.discord.version} (${info.discord.build})`,
             `> React: ${info.react.version} (RN ${info.react.nativeVersion})`,
             `> Hermes: ${info.hermes.version} (bcv${info.hermes.bytecodeVersion})`,
