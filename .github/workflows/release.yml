@@ -1,163 +1,37 @@
-name: Automatic Release
-
+name: Release
 on:
-  push:
-    branches:
-      - main
-      - dev
-  workflow_dispatch:
+    push:
+        branches: [main, dev]
 
 jobs:
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    release:
+        name: Release
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
+          - name: Restore Bun cache
+            uses: actions/cache@v4
+            with:
+              path: ~/.bun/install/cache
+              key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+              restore-keys: |
+                ${{ runner.os }}-bun-
+              
+          - name: Setup Bun
+            uses: oven-sh/setup-bun@v2
+            with:
+              bun-version: latest
 
-      - name: Install dependencies
-        run: bun install
-        shell: bash
+          - name: Install dependencies
+            run: bun install --frozen-lockfile
 
-      - name: Extract base version
-        id: extract
-        run: |
-          # Extract base version (major.minor.patch) from src/modules.d.ts using pure shell (grep/sed)
-          # Capture the first three-part version and ignore any prerelease suffix (e.g. "-1")
-          if [ ! -f src/modules.d.ts ]; then
-            echo "src/modules.d.ts not found" >&2
-            exit 1
-          fi
-          # Print the file for debugging in workflow logs
-          echo '--- src/modules.d.ts ---' >&2
-          sed -n '1,200p' src/modules.d.ts >&2 || true
-
-          # Primary extraction: match "X.Y.Z" (three numeric components) within quotes
-          version=$(grep -m1 -oE '"[0-9]+\.[0-9]+\.[0-9]+' src/modules.d.ts | tr -d '"' | head -n1 || true)
-
-          # Fallback: capture quoted version possibly with prerelease suffix and strip suffix
-          if [ -z "$version" ]; then
-            raw=$(grep -m1 -oE '"[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?"' src/modules.d.ts | tr -d '"' | head -n1 || true)
-            version=$(printf '%s' "$raw" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
-          fi
-
-          # Validate final result is exactly major.minor.patch
-          if ! printf '%s' "$version" | grep -xE '^[0-9]+\.[0-9]+\.[0-9]+$' >/dev/null; then
-            echo "Failed to extract a valid base version from src/modules.d.ts" >&2
-            sed -n '1,200p' src/modules.d.ts >&2 || true
-            exit 1
-          fi
-
-          echo "version=$version" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Prepare tag (detect dev branch and compute prerelease numeric suffix)
-        id: prepare
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          # Derive branch and base version
-          ref="${GITHUB_REF#refs/heads/}"
-          version="${{ steps.extract.outputs.version }}"
-
-          echo "[debug] GITHUB_REF=$GITHUB_REF" >&2
-          echo "[debug] branch=$ref" >&2
-          echo "[debug] base version=$version" >&2
-
-          prerelease="false"
-          tag="${version}"
-
-          if [ "$ref" = "dev" ]; then
-            prerelease="true"
-
-            # Ensure we have remote tags to inspect
-            git fetch --tags --prune origin
-
-            # Collect exact-match prerelease numbers for tags that start with "<version>-"
-            # This avoids partial matches like '1.1.41' when base version is '1.1.4'
-            : > /tmp/pr_nums || true
-
-            # Use ls-remote to avoid depending on local clone tags; normalize tag names:
-            #  - strip refs/tags/
-            #  - remove annotated tag suffix ^{} if present
-            #  - remove leading v prefix
-            git ls-remote --tags origin | awk '{print $2}' \
-              | sed 's@refs/tags/@@' \
-              | sed 's/\\^{}$//' \
-              | sed 's/^v//' \
-              | while IFS= read -r tagname; do
-                  if [[ "$tagname" == "${version}-"* ]]; then
-                    num="${tagname#${version}-}"
-                    if [[ "$num" =~ ^[0-9]+$ ]]; then
-                      echo "$num" >> /tmp/pr_nums
-                    fi
-                  fi
-                done || true
-
-            echo "[debug] matching prerelease numbers:" >&2
-            cat /tmp/pr_nums 2>/dev/null || echo "(none)" >&2
-
-            max=0
-            if [ -f /tmp/pr_nums ]; then
-              while read -r n; do
-                if [ -n "$n" ] && [[ "$n" =~ ^[0-9]+$ ]]; then
-                  if [ "$n" -gt "$max" ]; then
-                    max="$n"
-                  fi
-                fi
-              done < /tmp/pr_nums || true
-            fi
-
-            next=$((max + 1))
-            tag="${version}-${next}"
-          fi
-
-          echo "[debug] computed tag=${tag}" >&2
-
-          # Expose outputs
-          echo "tag=${tag}" >> $GITHUB_OUTPUT
-          echo "prerelease=${prerelease}" >> $GITHUB_OUTPUT
-
-          # Ensure a committer identity is configured for tagging (CI runners don't have one by default)
-          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          git config user.name "${GITHUB_ACTOR}"
-
-          # Create annotated tag locally and push it if not already present on the remote.
-          if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
-            git tag -a "${tag}" -m "Release ${tag}"
-            # push tag via token-authenticated remote so workflow can push tags
-            git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${tag}"
-          else
-            echo "Tag ${tag} already exists"
-          fi
-        shell: bash
-
-      - name: Build (if needed)
-        run: bun run build
-        shell: bash
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          # Use the computed tag (e.g. "1.1.4" or "1.1.4-1")
-          tag_name: ${{ steps.prepare.outputs.tag }}
-          name: Release ${{ steps.prepare.outputs.tag }}
-          prerelease: ${{ steps.prepare.outputs.prerelease }}
-          files: |
-            dist/shiggycord.js
-            dist/shiggycord.min.js
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          - name: Release
+            run: bunx semantic-release
+            env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                RELEASE_BRANCH: ${{ github.ref_name }}
