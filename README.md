@@ -1,1 +1,1 @@
-# Im too lazy to type something up here so imagine le funny.
+# Too lazy to put something here, just enjoy

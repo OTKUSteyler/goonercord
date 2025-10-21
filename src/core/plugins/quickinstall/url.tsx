@@ -5,17 +5,17 @@ import { installTheme } from "@lib/addons/themes";
 import { findAssetId } from "@lib/api/assets";
 import { isThemeSupported } from "@lib/api/native/loader";
 import { after, instead } from "@lib/api/patcher";
-import { VD_PROXY_PREFIX,VD_THEMES_CHANNEL_ID } from "@lib/utils/constants";
+import { VD_PROXY_PREFIX, VD_THEMES_CHANNEL_ID } from "@lib/utils/constants";
 import { lazyDestructure } from "@lib/utils/lazy";
-import { channels, url } from "@metro/common";
+import { channels } from "@metro/common";
 import { byMutableProp } from "@metro/filters";
 import { findExports } from "@metro/finders";
 import { findByProps, findByPropsLazy } from "@metro/wrappers";
 import { showToast } from "@ui/toasts";
+import { Linking } from "react-native";
 
 const showSimpleActionSheet = findExports(byMutableProp("showSimpleActionSheet"));
 const handleClick = findByPropsLazy("handleClick");
-const { openURL } = lazyDestructure(() => url);
 const { getChannelId } = lazyDestructure(() => channels);
 const { getChannel } = lazyDestructure(() => findByProps("getChannel"));
 
@@ -30,10 +30,10 @@ function typeFromUrl(url: string) {
 function installWithToast(type: "plugin" | "theme", url: string) {
     (type === "plugin" ? VdPluginManager.installPlugin.bind(VdPluginManager) : installTheme)(url)
         .then(() => {
-            showToast(Strings.SUCCESSFULLY_INSTALLED, findAssetId("Check"));
+            showToast(Strings.SUCCESSFULLY_INSTALLED, findAssetId("DownloadIcon"));
         })
         .catch((e: Error) => {
-            showToast(e.message, findAssetId("Small"));
+            showToast(e.message, findAssetId("XSmallIcon"));
         });
 }
 
@@ -75,7 +75,7 @@ export default () => {
                 confirmText: Strings.INSTALL,
                 cancelText: Strings.CANCEL,
                 secondaryConfirmText: Strings.OPEN_IN_BROWSER,
-                onConfirmSecondary: () => openURL(url),
+                onConfirmSecondary: () => Linking.openURL(url),
             });
         })
     );

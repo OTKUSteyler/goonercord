@@ -9,9 +9,9 @@ import { BundleUpdaterManager } from "@lib/api/native/modules";
 import { settings } from "@lib/api/settings";
 import { openAlert } from "@lib/ui/alerts";
 import { DISCORD_SERVER, GITHUB } from "@lib/utils/constants";
-import { NavigationNative, url } from "@metro/common";
+import { NavigationNative } from "@metro/common";
 import { AlertActionButton, AlertActions, AlertModal, Stack, TableRow, TableRowGroup, TableSwitchRow } from "@metro/common/components";
-import { ScrollView } from "react-native";
+import { Linking, ScrollView } from "react-native";
 
 export default function General() {
     useProxy(settings);
@@ -30,7 +30,7 @@ export default function General() {
                     />
                     <TableRow
                         label={"Discord"}
-                        icon={<TableRow.Icon source={findAssetId("Discord")!} />}
+                        icon={<TableRow.Icon source={findAssetId("ClydeIcon")!} />}
                         trailing={<TableRow.TrailingText text={`${debugInfo.discord.version} (${debugInfo.discord.build})`} />}
                     />
                     <TableRow
@@ -47,14 +47,14 @@ export default function General() {
                     <TableRow
                         arrow={true}
                         label={Strings.DISCORD_SERVER}
-                        icon={<TableRow.Icon source={findAssetId("Discord")!} />}
-                        onPress={() => url.openDeeplink(DISCORD_SERVER)}
+                        icon={<TableRow.Icon source={findAssetId("ClydeIcon")!} />}
+                        onPress={() => Linking.openURL(DISCORD_SERVER)}
                     />
                     <TableRow
                         arrow={true}
                         label={Strings.GITHUB}
                         icon={<TableRow.Icon source={findAssetId("img_account_sync_github_white")!} />}
-                        onPress={() => url.openURL(GITHUB)}
+                        onPress={() => Linking.openURL(GITHUB)}
                     />
                 </TableRowGroup>
                 <TableRowGroup title={Strings.ACTIONS}>
